@@ -1,0 +1,31 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  template:
+    spec:
+      containers:
+        - name: microservice-container
+          env:
+            - name: PORT
+              value: "9090"
+            - name: SENTRY_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: sentry-url
+                  key: url
+            - name: SENTRY_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: sentry-conf
+                  key: ENV
+            - name: SENTRY_RELEASE
+              valueFrom:
+                configMapKeyRef:
+                  name: sentry-conf
+                  key: RELEASE
+          command: ["/usr/local/bin/python", "-m", "imgstab.server"]
+          ports:
+            - containerPort: 9090

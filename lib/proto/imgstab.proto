@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+
+import "google/protobuf/timestamp.proto";
+
+
+message ImgstabRe{
+  google.protobuf.Timestamp timest = 1; // timestamp
+  bytes frame = 2; // files returns to sender in bytes
+}
+
+
+service Imgstab {
+  // main service, receives the file and returns it back to the same sender
+  rpc Upload (stream ImgstabRe) returns (stream ImgstabRe) {}
+}

@@ -1,0 +1,167 @@
+---
+.preprocessing-jobs-limit: &preprocessing_limits
+  KUBERNETES_MEMORY_REQUEST: 3Gi
+  KUBERNETES_MEMORY_LIMIT: 3Gi
+
+.preprocessing-module-merge-request:
+  extends: .integration-module-merge-request
+  variables:
+    <<: *preprocessing_limits
+    IMAGE_TAG: $CI_MERGE_REQUEST_IID
+    IMAGE_NAME: preprocessing
+    APP_PATH: $CI_PROJECT_DIR/preprocessing
+
+.preprocessing-module-deploy:
+  extends: .integration-module-deploy
+  variables:
+    <<: *preprocessing_limits
+    IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+    IMAGE_NAME: preprocessing
+    APP_PATH: $CI_PROJECT_DIR/preprocessing
+
+.build_preprocessing_teplate: &build_preprocessing
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  needs: []
+  script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - /kaniko/executor --force --skip-tls-verify=true --insecure=true --cache=true --context $CI_PROJECT_DIR --dockerfile $APP_PATH/Dockerfile --destination $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG
+
+build_preprocessing_deploy:
+  <<: *build_preprocessing
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'develop'
+  extends: .preprocessing-module-deploy
+
+build_preprocessing_merge_request:
+  <<: *build_preprocessing
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - preprocessing/**/*
+        - base/**/*
+  extends: .preprocessing-module-merge-request
+
+.test_preprocessing_template: &test_preprocessing
+  stage: test
+  variables:
+    <<: *preprocessing_limits
+  image:
+    name: $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG
+  needs:
+    - job: build_preprocessing_deploy
+      optional: true
+    - job: build_preprocessing_merge_request
+      optional: true
+  script:
+    - cd $APP_PATH
+    - pytest --cov=preprocessing -vvv --junitxml=report.xml tests
+    - coverage xml
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - preprocessing/**/*
+        - base/**/*
+    - if: $CI_COMMIT_BRANCH == 'develop'
+  artifacts:
+    when: always
+    reports:
+      junit: $APP_PATH/report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: $APP_PATH/coverage.xml
+
+test_preprocessing_deploy:
+  <<: *test_preprocessing
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'develop'
+  extends: .preprocessing-module-deploy
+
+test_preprocessing_merge_request:
+  <<: *test_preprocessing
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - preprocessing/**/*
+        - base/**/*
+  extends: .preprocessing-module-merge-request
+
+.integration_test_preprocessing_template: &integration_test_preprocessing
+  stage: integration_test
+  variables:
+    <<: *preprocessing_limits
+  image:
+    name: $CI_REGISTRY_IMAGE/$IMAGE_NAME:$IMAGE_TAG
+  script:
+    - echo $preprocessing_SERVICE
+    - cd $APP_PATH
+    - pytest --cov=preprocessing -vvv --junitxml=report.xml integration_tests
+    - coverage xml
+  artifacts:
+    when: always
+    reports:
+      junit: $APP_PATH/report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: $APP_PATH/coverage.xml
+
+integration_test_preprocessing_deploy:
+  <<: *integration_test_preprocessing
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'develop'
+      exists:
+        - preprocessing/integration_tests/*
+  extends: .preprocessing-module-deploy
+
+integration_test_preprocessing_merge_request:
+  <<: *integration_test_preprocessing
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event' && $CI_MERGE_REQUEST_LABELS =~ "deploy"
+      exists:
+        - preprocessing/integration_tests/*
+  extends: .preprocessing-module-merge-request
+
+lint_preprocessing:
+  variables:
+    <<: *preprocessing_limits
+    DEFAULT_WORKSPACE: $CI_PROJECT_DIR/preprocessing
+  stage: test
+  extends:
+    - .preprocessing-module-deploy
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - preprocessing/**/*
+        - base/**/*
+  image: oxsecurity/megalinter-python:v6.6.0
+  script: ["/bin/bash /entrypoint.sh"]
+  needs: []
+  artifacts:
+    when: always
+    paths:
+      - report
+    expire_in: 1 week
+
+notify_sentry_preprocessing:
+  stage: deploy
+  extends:
+    - .preprocessing-module-deploy
+  needs: ["test_preprocessing_deploy"]
+  image:
+    name: getsentry/sentry-cli:latest
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'develop'
+      when: on_success
+  script:
+    - echo "[auth]" > ~/.sentryclirc
+    - echo "token=${SENTRY_AUTH_TOKEN}" >> ~/.sentryclirc
+    - echo "[defaults]" >> ~/.sentryclirc
+    - echo "url=https://sentry.bluemotion-packer.com" >> ~/.sentryclirc
+    - echo "org=intelligent-warehouse" >> ~/.sentryclirc
+    - echo "project=${IMAGE_NAME}" >> ~/.sentryclirc
+    - sentry-cli releases new "${IMAGE_TAG}"
+    - sentry-cli releases deploys "${IMAGE_TAG}" new -e "develop"
+    - sentry-cli releases set-commits --auto "${IMAGE_TAG}"

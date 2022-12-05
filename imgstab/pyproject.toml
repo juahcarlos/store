@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "imgstab"
+version = "0.1.0"
+description = ""
+authors = ["Mikhail Lazarenko"]
+packages = [
+    { include = "imgstab" },
+    { include = "imgstab/py.typed" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+betterproto = { version = "2.0.0b4", allow-prereleases = true}
+numpy = "^1.22.3"
+grpcio-tools = "^1.45.0"
+grpclib = "^0.4.3"
+protobuf = "^3.20.0"
+prometheus_client = "^0.14.1"
+sentry-sdk = "^1.5.10"
+imutils = "^0.5.4"
+vidgear = "^0.2.6"
+starlette = "^0.20.4"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.1"
+pytest-grpc = "^0.8.0"
+pytest-asyncio = "^0.18.3"
+pytest-cov = "^3.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.8"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+known_first_party = ["imgstab", "bluelib"]
+profile = "black"
+
+[tool.black]
+line-length = 118
+
+[tool.mypy]
+ignore_missing_imports = true
+disallow_untyped_defs = true
+
+[tool.pylint.'LINE LENGTH']
+max-line-length = 118
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

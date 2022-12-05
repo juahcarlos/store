@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+enum PreprocessingType {
+  PREPROCESSING_TYPE_UNSPECIFIED = 0;
+  PREPROCESSING_TYPE_DEBLURRING = 1;
+  PREPROCESSING_TYPE_DENOISING = 2;
+  PREPROCESSING_TYPE_STABILIZATION = 3; 
+}
+
+message PreprocessingRequest{
+  bytes img_data = 1;
+  repeated PreprocessingType types = 2;
+}
+
+message PreprocessingResponse {
+  bytes img_data = 1; 
+}
+
+service Preprocessing
+{
+  rpc Preprocess(PreprocessingRequest) returns (PreprocessingResponse) {}
+}

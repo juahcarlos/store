@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "preprocessing"
+version = "0.1.0"
+description = ""
+authors = ["Dmytro Obrusnik"]
+packages = [
+    { include = "preprocessing" },
+    { include = "preprocessing/py.typed" },
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+betterproto = { version = "2.0.0b4", allow-prereleases = true}
+grpcio-tools = "^1.45.0"
+grpclib = "^0.4.3"
+protobuf = "^3.20.0" 
+prometheus_client = "^0.14.1"
+sentry-sdk = "^1.5.10"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.1.1"
+pytest-grpc = "^0.8.0"
+pytest-asyncio = "^0.18.3"
+pytest-cov = "^3.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.8"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+known_first_party = ["preprocessing", "bluelib"]
+profile = "black"
+
+[tool.black]
+line-length = 118
+
+[tool.mypy]
+ignore_missing_imports = true
+disallow_untyped_defs = true
+
+[tool.pylint.'LINE LENGTH']
+max-line-length = 118
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto" 
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
